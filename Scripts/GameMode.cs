@@ -4,30 +4,12 @@ using UnityEngine;
 
 public class GameMode : MonoBehaviour 
 {
-    [System.Serializable]
-    public struct FadeParams
-    {
-        public bool camera;
-        public bool sound;
-        public float delay;
-        public float time;
-        public Color color;
-    }
-
     public static GameMode Instance { get; private set; }
 
     /// <summary>
     /// fire when player spawn in scene
     /// </summary>
     public event System.Action<GameMode> onPlayerSpawn;
-
-    public bool fadeOnLoadScene = false;
-
-    public bool fadeOnExitScene = false;
-
-    public FadeParams fadeIn;
-    public FadeParams fadeOut;
-
 
     [SerializeField] private GameModeAsset _gameMode;
 
@@ -158,9 +140,9 @@ public class GameMode : MonoBehaviour
 
     private IEnumerator CO_LoadScene(string sceneName)
     {
-        if (fadeOnExitScene == true)
+        if (_gameMode.fadeOut.enable)
         {
-            yield return CO_FadeOut(fadeOut);
+            yield return CO_FadeOut(_gameMode.fadeOut);
         }
         yield return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
         _loading = false;
@@ -247,79 +229,77 @@ public class GameMode : MonoBehaviour
         Shader fadeShader = Shader.Find("Hidden/Apperture/Fade");
         _fadeMaterial = new Material(fadeShader);
         CreateCameraComponent();
-        if (fadeOnLoadScene)
+        if (_gameMode.fadeIn.enable)
         {
-            StartCoroutine(CO_FadeIn(fadeIn));
+            StartCoroutine(CO_FadeIn(_gameMode.fadeIn));
         }
     }
 
-    private IEnumerator CO_FadeIn(FadeParams fadeParams)
+    private IEnumerator CO_FadeIn(FadeOptions fadeOptions)
     {
         float t = 0;
-        if (fadeParams.camera)
+        if (fadeOptions.globalScreen)
         {
-            _fadeColor = fadeParams.color;
+            _fadeColor = Color.black;
             _fadeColor.a = 1;
         }
-        if (fadeParams.sound)
+        if (fadeOptions.globalSound)
         {
             MasterVolume = 0;
         }
-        yield return new WaitForSeconds(fadeParams.delay);
         while(t <= 1)
         {
-            if (fadeParams.camera)
+            if (fadeOptions.globalScreen)
             {
                 _fadeColor.a = Mathf.Lerp(1f, 0f, t);    
             }
-            if (fadeParams.sound)
+            if (fadeOptions.globalSound)
             {
                 MasterVolume = Mathf.Lerp(0f, 1f, t);
             }
-            t += Time.deltaTime / fadeParams.time;
+            t += Time.deltaTime / fadeOptions.time;
             yield return null;
         }
-        if (fadeParams.camera)
+        if (fadeOptions.globalScreen)
         {
             _fadeColor.a = 0;
         }
-        if (fadeParams.sound)
+        if (fadeOptions.globalSound)
         {
             MasterVolume = 1;
         }
     }
 
-    private IEnumerator CO_FadeOut(FadeParams fadeParams)
+    private IEnumerator CO_FadeOut(FadeOptions fadeOptions)
     {
         float t = 0;
-        if (fadeParams.camera)
+        if (fadeOptions.globalScreen)
         {
-            _fadeColor = fadeParams.color;
+            _fadeColor = Color.black;
             _fadeColor.a = 0;
         }
-        if (fadeParams.sound)
+        if (fadeOptions.globalSound)
         {
             MasterVolume = 1;
         }
-        yield return new WaitForSeconds(fadeParams.delay);
         while(t <= 1)
         {
-            if (fadeParams.camera)
+            if (fadeOptions.globalScreen)
             {
                 _fadeColor.a = Mathf.Lerp(0f, 1f, t);    
             }
-            if (fadeParams.sound)
+            if (fadeOptions.globalSound)
             {
                 MasterVolume = Mathf.Lerp(1f, 0f, t);
             }
-            t += Time.deltaTime / fadeParams.time;
+            t += Time.deltaTime / fadeOptions.time;
             yield return null;
         }
-        if (fadeParams.camera)
+        if (fadeOptions.globalScreen)
         {
             _fadeColor.a = 1;
         }
-        if (fadeParams.sound)
+        if (fadeOptions.globalSound)
         {
             MasterVolume = 0;
         }

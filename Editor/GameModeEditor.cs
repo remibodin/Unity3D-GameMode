@@ -30,7 +30,6 @@ public class GameModeEditor : Editor
         SerializedProperty time = serializedProperty.FindPropertyRelative("time");
         SerializedProperty color = serializedProperty.FindPropertyRelative("color");
 
-        GUILayout.BeginVertical("Box");
         EditorGUILayout.PropertyField (delay, new GUIContent("Delay"));
         EditorGUILayout.PropertyField (time, new GUIContent("Time"));
         EditorGUILayout.PropertyField (sound, new GUIContent("Sound"));
@@ -39,45 +38,54 @@ public class GameModeEditor : Editor
         {
             EditorGUILayout.PropertyField (color, new GUIContent("Fade camera color"));
         }
-        GUILayout.EndVertical();
     }
+
+    
+
+    bool _fadeInEditor = false;
+    bool _fadeOutEditor = false;
 
     public override void OnInspectorGUI() 
     {
+        serializedObject.Update();
         EditorGUILayout.PropertyField (gameModeAsset, new GUIContent ("Game mode profil"));
-        if (gameModeAsset.objectReferenceValue == null)
-        {
-            EditorGUILayout.HelpBox("Game mode profil is require", MessageType.Error);
-        }
-        else
-        {
-            GameModeAsset gameMode = gameModeAsset.objectReferenceValue as GameModeAsset;
-            if (gameMode.player == null)
-            {
-                EditorGUILayout.HelpBox("Player prefab is require", MessageType.Error);
-            }
-            else
-            {
-                if (GameMode.FindMainCameraTag(gameMode.player) == null && GameMode.FindPlayerTag(gameMode.player) == null)
-                {
-                    EditorGUILayout.HelpBox("Player tag not found in player prefab", MessageType.Warning);
-                }
-            }
-        }
-        GUILayout.Space(10);
-        EditorGUILayout.PropertyField (fadeOnLoadScene, new GUIContent ("Fade-in when scene load"));
-        if (fadeOnLoadScene.boolValue == true)
-        {
-            FadeOptionsGui(fadeIn);
-        }
-        GUILayout.Space(10);
-        EditorGUILayout.PropertyField (fadeOnExitScene, new GUIContent ("Fade-out when scene unload"));
-        if (fadeOnExitScene.boolValue == true)
-        {
-            FadeOptionsGui(fadeOut);
-        }
-        GUILayout.Space(10);
+        // if (gameModeAsset.objectReferenceValue == null)
+        // {
+        //     EditorGUILayout.HelpBox("Game mode profil is require", MessageType.Error);
+        // }
+        // else
+        // {
+        //     GameModeAsset gameMode = gameModeAsset.objectReferenceValue as GameModeAsset;
+        //     if (gameMode.player == null)
+        //     {
+        //         EditorGUILayout.HelpBox("Player prefab is require", MessageType.Error);
+        //     }
+        //     else
+        //     {
+        //         if (GameMode.FindMainCameraTag(gameMode.player) == null && GameMode.FindPlayerTag(gameMode.player) == null)
+        //         {
+        //             EditorGUILayout.HelpBox("Player tag not found in player prefab", MessageType.Warning);
+        //         }
+        //     }
+        // }
+        // GUILayout.Space(10);
         
+        // _fadeInEditor = DrawHeader("Fade in", fadeOnLoadScene, _fadeInEditor);
+        // if (_fadeInEditor)
+        // {
+        //     bool oldEnableGUI = GUI.enabled;
+        //     GUI.enabled = fadeOnLoadScene.boolValue;
+        //     FadeOptionsGui(fadeIn);
+        //     GUI.enabled = oldEnableGUI;
+        // }
+        // _fadeOutEditor = DrawHeader("Fade out", fadeOnExitScene, _fadeOutEditor);
+        // if (_fadeOutEditor)
+        // {
+        //     bool oldEnableGUI = GUI.enabled;
+        //     GUI.enabled = fadeOnExitScene.boolValue;
+        //     FadeOptionsGui(fadeOut);
+        //     GUI.enabled = oldEnableGUI;
+        // }        
         serializedObject.ApplyModifiedProperties();
     }
 }
