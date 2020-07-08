@@ -1,0 +1,17 @@
+{
+    "name": "nrtx.gamemode.editor",
+    "references": [
+        "GUID:a55959c63826e42dabe64cd1c9672cfb"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
