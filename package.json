@@ -1,9 +1,9 @@
-
 {
-    "name": "com.apperture.gamemode",
-    "displayName": "GameMode",
-    "version": "0.0.1",
-    "unity": "2018.1",
-    "description": "Game mode asset",
-    "dependencies": { }
+  "name": "com.nrtx.gamemode",
+  "displayName": "GameMode",
+  "version": "1.0.0",
+  "unity": "2019.3",
+  "description": "Game mode asset",
+  "author": "Nrtx",
+  "type": "tool"
 }

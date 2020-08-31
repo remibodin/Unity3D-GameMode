@@ -1,337 +1,177 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GameMode : MonoBehaviour 
+namespace Nrtx
 {
-    public static GameMode Instance { get; private set; }
-
-    /// <summary>
-    /// fire when player spawn in scene
-    /// </summary>
-    public event System.Action<GameMode> onPlayerSpawn;
-
-    [SerializeField] private GameModeAsset _gameMode;
-
-    private List<GameObject> _spawnPoints = null;
-    private GameObject _playerInstance = null;
-    private GameObject _playerTagInstance = null;
-    private float _playerSpawnTime = 0f;
-
-    private Material _fadeMaterial;
-    private Color _fadeColor = Color.clear;
-    
-    /// <summary>
-    /// check if GameMode is valide
-    /// </summary>
-    /// <returns>True if all require reference are set</returns>
-    public bool IsValide
+    public class GameMode : MonoBehaviour
     {
-        get
-        {
-            return _gameMode != null && _gameMode.player != null;
-        }
-    }
+        [SerializeField] private GameModeAsset _gameMode;
+        private readonly List<GameObject> _spawnPointCollection = new List<GameObject>();
+        private Material _fadeMaterial;
+        private Color _fadeColor;
+        private Coroutine _fadeCoroutine = null;
+        private float _fadeValue = 0;
 
-    /// <summary>
-    /// Object with Player tag or MainCamera tag in player prefab.
-    /// Or root object spawned if no tag found
-    /// </summary>
-    /// <returns>GameObject player</returns>
-    public GameObject Player
-    {
-        get
+        private static GameMode _instance;
+
+        #region MonoBehaviour
+
+        private void Awake()
         {
-            if (_playerTagInstance != null)
+            _instance = this;
+            
+            // Add a camera component on game object to active OnPostRender callback
+            CreateCameraComponent();
+
+            _fadeMaterial = new Material(Shader.Find("Hidden/Nrtx/Fade"));
+            _fadeColor = Color.clear;
+
+            SearchAllSpawnPointsInScene();
+            if (_gameMode != null && _gameMode.spawnPlayerOnAwake)
             {
-                return _playerTagInstance;
+                SpawnPlayerInternal();
             }
-            return _playerInstance;
-        }
-    }
 
-    /// <summary>
-    /// Object spawn
-    /// </summary>
-    /// <returns>Object spawn</returns>
-    public GameObject PlayerRoot
-    {
-        get
-        {
-            return _playerInstance;
-        }
-    }
-
-    /// <summary>
-    /// Check if player already spawn in scene
-    /// </summary>
-    /// <returns>Player is present in scene</returns>
-    public bool PlayerIsPresent
-    {
-        get
-        {
-            return _playerInstance != null;
-        }
-    }
-
-    /// <summary>
-    /// Secondes since player spawn
-    /// </summary>
-    /// <returns>0 if player not present</returns>
-    public float TimeSincePlayerSpawn
-    {
-        get
-        {
-            if (PlayerIsPresent == false)
+            if (_gameMode != null && _gameMode.fadeIn.enable)
             {
-                return 0;
+                FadeIn(_gameMode.fadeIn.time);
             }
-            return Time.time - _playerSpawnTime;
-        }
-    }
-
-    public float MasterVolume
-    {
-        get 
-        {
-            return AudioListener.volume;
         }
 
-        set
+        private void FadeIn(float time)
         {
-            AudioListener.volume = Mathf.Clamp01(value);
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeCoroutine(time, 0f));
         }
-    }
 
-    /// <summary>
-    /// Spawn player prefab in scene
-    /// </summary>
-    public void SpawnPlayer()
-    {
-        if (_playerInstance != null)
+        private void FadeOut(float time)
         {
-            Debug.LogWarning("Player already present in scene");
-            return;
+            if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = StartCoroutine(FadeCoroutine(time, 1f));
         }
-        GameObject spawnPoint = _spawnPoints[0];
-        _playerInstance = GameObject.Instantiate(_gameMode.player, spawnPoint.transform.position, spawnPoint.transform.rotation);
-        _playerTagInstance = FindPlayerTag(_playerInstance);
-        if (_playerTagInstance == null)
-        {
-            _playerTagInstance = FindMainCameraTag(_playerInstance);
-        }
-        _playerSpawnTime = Time.time;
-        if (onPlayerSpawn != null)
-        {
-            onPlayerSpawn(this);
-        }
-    }
 
-    private bool _loading = false;
-    public void LoadScene(string sceneName)
-    {
-        if (_loading == true)
+        private IEnumerator FadeCoroutine(float time, float endValue)
         {
-            return;
-        }
-        _loading = true;
-        StartCoroutine(CO_LoadScene(sceneName));
-    }
-
-    private IEnumerator CO_LoadScene(string sceneName)
-    {
-        if (_gameMode.fadeOut.enable)
-        {
-            yield return CO_FadeOut(_gameMode.fadeOut);
-        }
-        yield return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
-        _loading = false;
-    }
-
-    private void SearchAllSpawnPointsInScene()
-    {
-        _spawnPoints = new List<GameObject>(GameObject.FindGameObjectsWithTag("Respawn"));
-    }
-
-    private static GameObject FindTagInChild(GameObject go, string tag)
-    {
-        if (go.transform.CompareTag(tag) == true)
-        {
-            return go;
-        }
-        int childCount = go.transform.childCount;
-        for (int i = 0; i < childCount; ++i)
-        {
-            Transform child = go.transform.GetChild(i);
-            if (child.CompareTag(tag) == true)
+            if (time <= 0)
             {
-                return child.gameObject;
+                _fadeValue = endValue;
+                yield break;
             }
-            if (child.childCount > 0)
+            
+            float speed = 1f / time;
+            yield return null;
+        }
+
+        private void OnPostRender()
+        {
+            _fadeMaterial.SetColor("_Color", _fadeColor);
+            _fadeMaterial.SetPass(0);
+            GL.Begin(GL.QUADS);
+            GL.Vertex3(-1, -1, 0);
+            GL.Vertex3( 1, -1, 0);
+            GL.Vertex3(1, 1, 0);
+            GL.Vertex3(-1, 1, 0);
+            GL.End(); 
+        }
+
+        #endregion
+
+        private static void CheckInstance()
+        {
+            if (_instance == null)
             {
-                GameObject tagInChild = FindTagInChild(child.gameObject, tag);
-                if (tagInChild != null)
+                throw new System.Exception("GameMode instance is null");
+            }
+        }
+
+        private void CreateCameraComponent()
+        {
+            Camera camera = gameObject.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.Nothing;
+            camera.cullingMask = 0;
+            camera.nearClipPlane = 0.01f;
+            camera.farClipPlane = 0.02f;
+            camera.depth = 100;
+            camera.useOcclusionCulling = false;
+            camera.allowMSAA = false;
+            camera.allowHDR = false;
+            camera.hideFlags = HideFlags.HideInHierarchy | HideFlags.HideInInspector;
+        }
+
+        private void SearchAllSpawnPointsInScene()
+        {
+            var sceneSpawnPoints = GameObject.FindGameObjectsWithTag("Respawn");
+            if (sceneSpawnPoints.Length > 0)
+            {
+                _spawnPointCollection.AddRange(sceneSpawnPoints);
+            }
+        }
+
+        private void SpawnPlayerInternal()
+        {
+            if (_gameMode == null || _gameMode.player == null)
+            {
+                Debug.LogError("Player is not set in game mode or game mode asset is null");
+                return;
+            }
+
+            if (_spawnPointCollection.Count <= 0)
+            {
+                CreateSpawnPoint(Vector3.zero);
+                Debug.LogWarning("Objects with tag Respawn not found. One SpawnPoint auto-created");
+            }
+
+            GameObject spawnPoint = _spawnPointCollection[0];
+            GameObject playerInstance = Instantiate(_gameMode.player, spawnPoint.transform.position, spawnPoint.transform.rotation);
+        }
+
+        private GameObject CreateSpawnPointInternal(Vector3 position, Quaternion rotation)
+        {
+            GameObject spawnPoint = new GameObject("SpawnPoint");
+            spawnPoint.transform.position = position;
+            spawnPoint.transform.rotation = rotation;
+            spawnPoint.tag = "Respawn";
+            _spawnPointCollection.Add(spawnPoint);
+            return spawnPoint;
+        }
+
+        #region Public static methods
+
+        public static void SpawnPlayer()
+        {
+            CheckInstance();
+            _instance.SpawnPlayerInternal();
+        }
+
+        public static GameObject CreateSpawnPoint(Vector3 position)
+        {
+            return CreateSpawnPoint(position, Quaternion.identity);
+        }
+
+        public static GameObject CreateSpawnPoint(Vector3 position, Quaternion rotation)
+        {
+            CheckInstance();
+            return _instance.CreateSpawnPointInternal(position, rotation);
+        }
+
+        public static GameObject GetClosestSpawnPoint(Vector3 position)
+        {
+            CheckInstance();
+            float closestDistance = float.MaxValue;
+            GameObject closestObject = null;
+            foreach (var spawn in _instance._spawnPointCollection)
+            {
+                var distance = Vector3.Distance(position, spawn.transform.position);
+                if (distance < closestDistance)
                 {
-                    return tagInChild;
+                    closestDistance = distance;
+                    closestObject = spawn;
                 }
             }
-        }
-        return null;
-    }
-
-    public static GameObject FindPlayerTag(GameObject go)
-    {
-        return FindTagInChild(go, "Player");
-    }
-
-    public static GameObject FindMainCameraTag(GameObject go)
-    {
-        return FindTagInChild(go, "MainCamera");
-    }
-
-    private GameObject CreateSpawnPoint(Vector3 position, Quaternion rotation)
-    {
-        GameObject spanwPoint = new GameObject("PlayerStart");
-        Transform spanwPointTransform = spanwPoint.transform;
-        spanwPointTransform.position = position;
-        spanwPointTransform.rotation = rotation;
-        spanwPoint.tag = "Respawn";
-        return spanwPoint;
-    }
-
-    private void Awake() 
-    {
-        // au cas ou il y a un fadeout dans la scene precedente
-        // et pas de fadein dan la nouvelle
-        MasterVolume = 1;
-
-        Instance = this;
-        if (IsValide == false)
-        {
-            Debug.LogError("GameMode is invalide. Assigne a correct GameMode profil", this);
-            return;
-        }
-        SearchAllSpawnPointsInScene();
-        if (_spawnPoints == null)
-        {
-            _spawnPoints = new List<GameObject>();
-        }
-        if (_spawnPoints.Count <= 0)
-        {
-            _spawnPoints.Add(CreateSpawnPoint(Vector3.zero, Quaternion.identity));
-            Debug.LogWarning("Objects with tag Respawn not found. One SpawnPoint auto-created");
-        }
-        if (_gameMode.spawnPlayerOnSceneLoad)
-        {
-            SpawnPlayer();
+            return closestObject;
         }
 
-        Shader fadeShader = Shader.Find("Hidden/Apperture/Fade");
-        _fadeMaterial = new Material(fadeShader);
-        CreateCameraComponent();
-        if (_gameMode.fadeIn.enable)
-        {
-            StartCoroutine(CO_FadeIn(_gameMode.fadeIn));
-        }
-    }
-
-    private IEnumerator CO_FadeIn(FadeOptions fadeOptions)
-    {
-        float t = 0;
-        if (fadeOptions.globalScreen)
-        {
-            _fadeColor = Color.black;
-            _fadeColor.a = 1;
-        }
-        if (fadeOptions.globalSound)
-        {
-            MasterVolume = 0;
-        }
-        while(t <= 1)
-        {
-            if (fadeOptions.globalScreen)
-            {
-                _fadeColor.a = Mathf.Lerp(1f, 0f, t);    
-            }
-            if (fadeOptions.globalSound)
-            {
-                MasterVolume = Mathf.Lerp(0f, 1f, t);
-            }
-            t += Time.deltaTime / fadeOptions.time;
-            yield return null;
-        }
-        if (fadeOptions.globalScreen)
-        {
-            _fadeColor.a = 0;
-        }
-        if (fadeOptions.globalSound)
-        {
-            MasterVolume = 1;
-        }
-    }
-
-    private IEnumerator CO_FadeOut(FadeOptions fadeOptions)
-    {
-        float t = 0;
-        if (fadeOptions.globalScreen)
-        {
-            _fadeColor = Color.black;
-            _fadeColor.a = 0;
-        }
-        if (fadeOptions.globalSound)
-        {
-            MasterVolume = 1;
-        }
-        while(t <= 1)
-        {
-            if (fadeOptions.globalScreen)
-            {
-                _fadeColor.a = Mathf.Lerp(0f, 1f, t);    
-            }
-            if (fadeOptions.globalSound)
-            {
-                MasterVolume = Mathf.Lerp(1f, 0f, t);
-            }
-            t += Time.deltaTime / fadeOptions.time;
-            yield return null;
-        }
-        if (fadeOptions.globalScreen)
-        {
-            _fadeColor.a = 1;
-        }
-        if (fadeOptions.globalSound)
-        {
-            MasterVolume = 0;
-        }
-    }
-
-    private void CreateCameraComponent()
-    {
-        Camera camera = gameObject.AddComponent<Camera>();
-        camera.clearFlags = CameraClearFlags.Nothing;
-        camera.cullingMask = 0;
-        camera.nearClipPlane = 0.01f;
-        camera.farClipPlane = 0.02f;
-        camera.depth = 100;
-        camera.useOcclusionCulling = false;
-        camera.allowMSAA = false;
-        camera.allowHDR = false;
-        camera.hideFlags = HideFlags.HideInInspector;
-    }
-
-    private void OnPostRender()
-    {
-        if (_fadeColor.a <= 0)
-        {
-            return;
-        }
-        _fadeMaterial.SetColor("_Color", _fadeColor);
-        _fadeMaterial.SetPass(0);
-        GL.Begin(GL.QUADS);
-        GL.Vertex3(-1, -1, 0);
-        GL.Vertex3( 1, -1, 0);
-        GL.Vertex3(1, 1, 0);
-        GL.Vertex3(-1, 1, 0);
-        GL.End(); 
+        #endregion
     }
 }
