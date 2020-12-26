@@ -9,7 +9,7 @@ namespace Nrtx
         [SerializeField] private GameModeAsset _gameMode;
         private readonly List<GameObject> _spawnPointCollection = new List<GameObject>();
         private Material _fadeMaterial;
-        private Color _fadeColor;
+        private Color _fadeColor => Color.Lerp(Color.clear, Color.black, _fadeValue);
         private Coroutine _fadeCoroutine = null;
         private float _fadeValue = 0;
 
@@ -25,7 +25,7 @@ namespace Nrtx
             CreateCameraComponent();
 
             _fadeMaterial = new Material(Shader.Find("Hidden/Nrtx/Fade"));
-            _fadeColor = Color.clear;
+            // _fadeColor = Color.clear;
 
             SearchAllSpawnPointsInScene();
             if (_gameMode != null && _gameMode.spawnPlayerOnAwake)
@@ -35,6 +35,7 @@ namespace Nrtx
 
             if (_gameMode != null && _gameMode.fadeIn.enable)
             {
+                _fadeValue = 1;
                 FadeIn(_gameMode.fadeIn.time);
             }
         }
@@ -60,7 +61,16 @@ namespace Nrtx
             }
             
             float speed = 1f / time;
-            yield return null;
+            float direction = Mathf.Sign(endValue - _fadeValue);
+            while (_fadeValue != endValue)
+            {
+                float step = speed * direction * Time.deltaTime;
+                if (Mathf.Abs(step) > Mathf.Abs(endValue - _fadeValue))
+                    _fadeValue = endValue;
+                else
+                    _fadeValue += step;
+                yield return null;
+            }
         }
 
         private void OnPostRender()
